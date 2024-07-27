@@ -1,0 +1,9 @@
+package config
+
+import "os"
+
+func ConfigDotenv() {
+	os.Setenv("JWT_SECRET", "")
+	os.Setenv("ENCRYPT_SECRET", "")
+	os.Setenv("DB_URL", "")
+}
