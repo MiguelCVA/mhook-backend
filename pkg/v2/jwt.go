@@ -1,4 +1,4 @@
-package jwt
+package jwtv2
 
 import (
 	"crypto/aes"
