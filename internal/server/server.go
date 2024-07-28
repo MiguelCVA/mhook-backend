@@ -3,7 +3,7 @@ package server
 import (
 	"log"
 
-	"github.com/MiguelCVA/mhook-backend/api"
+	"github.com/MiguelCVA/mhook-backend/internal/api"
 	"github.com/gin-gonic/gin"
 )
 

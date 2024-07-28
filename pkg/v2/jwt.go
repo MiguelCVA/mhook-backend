@@ -1,4 +1,4 @@
-package pkg
+package jwt
 
 import (
 	"crypto/aes"
@@ -6,13 +6,25 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func adjustKeySize(key string) []byte {
+type Config struct {
+	JWTSecret      string
+	EncryptSecret  string
+}
+
+type JWTGenerator struct {
+	config Config
+}
+
+func New(config Config) *JWTGenerator {
+	return &JWTGenerator{config: config}
+}
+
+func (j *JWTGenerator) adjustKeySize(key string) []byte {
 	const keySize = 32
 	keyBytes := []byte(key)
 	if len(keyBytes) < keySize {
@@ -21,13 +33,12 @@ func adjustKeySize(key string) []byte {
 	return keyBytes[:keySize]
 }
 
-func encrypt(data []byte) (string, error) {
-	encryptSecret := os.Getenv("ENCRYPT_SECRET")
-	if encryptSecret == "" {
-		return "", fmt.Errorf("encrypt_secret não está definido")
+func (j *JWTGenerator) encrypt(data []byte) (string, error) {
+	if j.config.EncryptSecret == "" {
+		return "", fmt.Errorf("ENCRYPT_SECRET is not set")
 	}
 
-	block, err := aes.NewCipher(adjustKeySize(encryptSecret))
+	block, err := aes.NewCipher(j.adjustKeySize(j.config.EncryptSecret))
 	if err != nil {
 		return "", err
 	}
@@ -40,17 +51,16 @@ func encrypt(data []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
 
-func decrypt(encryptedData string) ([]byte, error) {
-	encryptSecret := os.Getenv("ENCRYPT_SECRET")
-	if encryptSecret == "" {
-		return nil, fmt.Errorf("encrypt_secret não está definido")
+func (j *JWTGenerator) decrypt(encryptedData string) ([]byte, error) {
+	if j.config.EncryptSecret == "" {
+		return nil, fmt.Errorf("ENCRYPT_SECRET is not set")
 	}
 
 	data, err := base64.StdEncoding.DecodeString(encryptedData)
 	if err != nil {
 		return nil, err
 	}
-	block, err := aes.NewCipher(adjustKeySize(encryptSecret))
+	block, err := aes.NewCipher(j.adjustKeySize(j.config.EncryptSecret))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +73,7 @@ func decrypt(encryptedData string) ([]byte, error) {
 	return gcm.Open(nil, nonce, ciphertext, nil)
 }
 
-func GenerateJWT(payload map[string]interface{}, expiryDuration time.Duration) (string, error) {
+func (j *JWTGenerator) GenerateJWT(payload map[string]interface{}, expiryDuration time.Duration) (string, error) {
 	now := time.Now()
 	exp := now.Add(expiryDuration)
 
@@ -72,9 +82,8 @@ func GenerateJWT(payload map[string]interface{}, expiryDuration time.Duration) (
 		"iat": now.Unix(),
 	}
 
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		return "", fmt.Errorf("jwt_secret não está definido")
+	if j.config.JWTSecret == "" {
+		return "", fmt.Errorf("JWT_SECRET is not set")
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -82,7 +91,7 @@ func GenerateJWT(payload map[string]interface{}, expiryDuration time.Duration) (
 		return "", err
 	}
 
-	encryptedPayload, err := encrypt(payloadBytes)
+	encryptedPayload, err := j.encrypt(payloadBytes)
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +100,7 @@ func GenerateJWT(payload map[string]interface{}, expiryDuration time.Duration) (
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString(adjustKeySize(secret))
+	tokenString, err := token.SignedString(j.adjustKeySize(j.config.JWTSecret))
 	if err != nil {
 		return "", err
 	}
@@ -100,17 +109,16 @@ func GenerateJWT(payload map[string]interface{}, expiryDuration time.Duration) (
 	return tokenString, nil
 }
 
-func DecodeJWT(tokenString string) (map[string]interface{}, error) {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		return nil, fmt.Errorf("jwt_secret não está definido")
+func (j *JWTGenerator) DecodeJWT(tokenString string) (map[string]interface{}, error) {
+	if j.config.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT_SECRET is not set")
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("método de assinatura inesperado: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return adjustKeySize(secret), nil
+		return j.adjustKeySize(j.config.JWTSecret), nil
 	})
 
 	if err != nil {
@@ -119,7 +127,7 @@ func DecodeJWT(tokenString string) (map[string]interface{}, error) {
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		if encryptedPayload, ok := claims["data"].(string); ok {
-			decryptedPayload, err := decrypt(encryptedPayload)
+			decryptedPayload, err := j.decrypt(encryptedPayload)
 			if err != nil {
 				return nil, err
 			}
@@ -129,7 +137,7 @@ func DecodeJWT(tokenString string) (map[string]interface{}, error) {
 			}
 			return payload, nil
 		}
-		return nil, fmt.Errorf("dados encriptados não encontrados")
+		return nil, fmt.Errorf("encrypted data not found")
 	}
-	return nil, fmt.Errorf("token inválido")
+	return nil, fmt.Errorf("invalid token")
 }

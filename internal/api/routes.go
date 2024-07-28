@@ -7,7 +7,8 @@ import (
 
 	auth_controller "github.com/MiguelCVA/mhook-backend/internal/infra/auth"
 	user_controller "github.com/MiguelCVA/mhook-backend/internal/infra/user"
-	"github.com/MiguelCVA/mhook-backend/pkg"
+	"github.com/MiguelCVA/mhook-backend/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,7 +32,7 @@ func ConfigRoutes(router *gin.Engine) *gin.Engine {
 			}
 		}
 		api.GET("/token", func(ctx *gin.Context) {
-			genJWT, err := pkg.GenerateJWT(map[string]interface{}{
+			genJWT, err := services.GenerateJWT(map[string]interface{}{
 				"a": "b",
 			}, 1*time.Hour)
 

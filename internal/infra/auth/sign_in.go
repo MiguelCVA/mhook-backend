@@ -6,7 +6,8 @@ import (
 
 	"github.com/MiguelCVA/mhook-backend/internal/database"
 	"github.com/MiguelCVA/mhook-backend/internal/models"
-	"github.com/MiguelCVA/mhook-backend/pkg"
+	"github.com/MiguelCVA/mhook-backend/internal/services"
+
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -74,7 +75,7 @@ func SignIn(ctx *gin.Context) {
 		return
 	}
 
-	jwt, err := pkg.GenerateJWT(map[string]interface{}{
+	jwt, err := services.GenerateJWT(map[string]interface{}{
 		"email":   requestBody.Email,
 		"session": session.ID,
 	}, 168*time.Hour)

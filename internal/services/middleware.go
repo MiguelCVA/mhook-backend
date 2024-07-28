@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/MiguelCVA/mhook-backend/pkg"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +21,7 @@ func AuthMiddleware(c *gin.Context) {
 	}
 
 	token := strings.TrimPrefix(authorizationHeader, "Bearer ")
-	payload, err := pkg.DecodeJWT(token)
+	payload, err := DecodeJWT(token)
 
 	if err != nil {
 		log.Printf("Erro ao decodificar token: %v", err)
