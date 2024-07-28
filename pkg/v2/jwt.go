@@ -105,7 +105,6 @@ func (j *JWTGenerator) GenerateJWT(payload map[string]interface{}, expiryDuratio
 		return "", err
 	}
 
-	fmt.Println(tokenString)
 	return tokenString, nil
 }
 
